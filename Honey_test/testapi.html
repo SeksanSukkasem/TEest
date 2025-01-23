@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบตรวจจับช้างป่า</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-3xl font-bold mb-6 text-center">ระบบตรวจจับช้างป่า</h1>
+            
+            <!-- Loading indicator -->
+            <div id="loading" class="flex items-center justify-center p-8">
+                <div class="loader"></div>
+                <span class="ml-2">กำลังโหลดข้อมูล...</span>
+            </div>
+
+            <!-- Error message -->
+            <div id="error" class="hidden p-4 mb-4 bg-red-100 border border-red-400 text-red-700 rounded"></div>
+
+            <!-- Latest detection card -->
+            <div id="dataContainer" class="hidden">
+                <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                    <!-- Header section -->
+                    <div class="p-6 border-b">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h2 class="text-2xl font-semibold mb-2">การตรวจจับล่าสุด</h2>
+                                <p class="text-gray-600" id="timestamp">-</p>
+                            </div>
+                            <span id="intensityBadge" class="px-4 py-2 rounded-full text-sm font-semibold"></span>
+                        </div>
+                    </div>
+
+                    <!-- Main content -->
+                    <div class="p-6 space-y-6">
+                        <!-- Camera and Location Info -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <p class="text-sm text-gray-600">รหัสกล้อง</p>
+                                <p class="font-medium text-lg" id="camera_id">-</p>
+                            </div>
+                            <div class="space-y-2">
+                                <p class="text-sm text-gray-600">ตำแหน่งกล้อง</p>
+                                <p class="font-medium text-lg" id="camera_location">-</p>
+                            </div>
+                        </div>
+
+                        <!-- Detection Details -->
+                        <div class="bg-gray-50 p-4 rounded-lg space-y-4">
+                            <h3 class="font-semibold text-lg">รายละเอียดการตรวจจับ</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-sm text-gray-600 mb-1">จำนวนที่ตรวจพบ</p>
+                                    <p class="font-medium" id="detection_count">-</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600 mb-1">สถานะ</p>
+                                    <p class="font-medium" id="status">-</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600 mb-1">พิกัด (ละติจูด)</p>
+                                    <p class="font-medium" id="latitude">-</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600 mb-1">พิกัด (ลองจิจูด)</p>
+                                    <p class="font-medium" id="longitude">-</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600 mb-1">ระยะห่าง</p>
+                                    <p class="font-medium" id="distance">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Refresh button -->
+                <div class="mt-6 text-center">
+                    <button onclick="fetchLatestData()" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg shadow transition duration-200">
+                        <i class="fas fa-sync-alt mr-2"></i>รีเฟรชข้อมูล
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchLatestData() {
+            const loadingElement = document.getElementById('loading');
+            const errorElement = document.getElementById('error');
+            const dataContainer = document.getElementById('dataContainer');
+
+            // Show loading
+            loadingElement.classList.remove('hidden');
+            errorElement.classList.add('hidden');
+            dataContainer.classList.add('hidden');
+
+            try {
+                const response = await fetch('https://aprlabtop.com/elephant_api/get_detections.php', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const latestData = Array.isArray(data) ? data[0] : data;
+
+                // Update UI elements
+                document.getElementById('timestamp').textContent = latestData.timestamp || '-';
+                document.getElementById('camera_id').textContent = latestData.id_cam || '-';
+                document.getElementById('camera_location').textContent = latestData.camera_address || '-';
+                document.getElementById('detection_count').textContent = latestData.detection_display || '-';
+                document.getElementById('status').textContent = latestData.status || '-';
+
+                // Parse and display coordinates
+                try {
+                    const lats = JSON.parse(latestData.elephant_lat || '[]');
+                    const longs = JSON.parse(latestData.elephant_long || '[]');
+                    document.getElementById('latitude').textContent = lats.join(', ') || '-';
+                    document.getElementById('longitude').textContent = longs.join(', ') || '-';
+                } catch (e) {
+                    document.getElementById('latitude').textContent = '-';
+                    document.getElementById('longitude').textContent = '-';
+                }
+
+                // Parse and display distances
+                try {
+                    const distances = JSON.parse(latestData.distance_ele || '[]');
+                    document.getElementById('distance').textContent = 
+                        distances.length > 0 ? `${distances.join(' - ')} เมตร` : '-';
+                } catch (e) {
+                    document.getElementById('distance').textContent = '-';
+                }
+
+                // Update intensity badge
+                const intensityBadge = document.getElementById('intensityBadge');
+                intensityBadge.textContent = latestData.intensity_text || '';
+                intensityBadge.className = `px-4 py-2 rounded-full text-sm font-semibold ${latestData.intensity_class || ''}`;
+
+                // Show data container
+                loadingElement.classList.add('hidden');
+                dataContainer.classList.remove('hidden');
+
+            } catch (error) {
+                // Hide loading
+                loadingElement.classList.add('hidden');
+                
+                // Show error message
+                errorElement.classList.remove('hidden');
+                errorElement.textContent = `เกิดข้อผิดพลาด: ${error.message}`;
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        // Fetch data when page loads
+        document.addEventListener('DOMContentLoaded', fetchLatestData);
+
+        // Refresh data every 30 seconds
+        setInterval(fetchLatestData, 30000);
+    </script>
+</body>
+</html>
